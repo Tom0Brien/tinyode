@@ -230,3 +230,78 @@ TEST_CASE("Solve bouncing ball ode using Euler and event detection.", "[ode]") {
     // Check if the height of the ball is as expected at the end of the simulation
     CHECK(std::abs(result.event_solutions[0](0)) < 1e-2);
 }
+
+TEST_CASE("Solve harmonic oscillator ode using RK4 method with event detection.", "[ode]") {
+    // Define the ODE function
+    auto ode_function = [](const double t, const Eigen::Matrix<double, 2, 1>& x) -> Eigen::Matrix<double, 2, 1> {
+        Eigen::Matrix<double, 2, 1> dxdt;
+        dxdt(0) = x(1);
+        dxdt(1) = -x(0);
+        return dxdt;
+    };
+
+    // Set initial conditions
+    Eigen::Matrix<double, 2, 1> initial_conditions;
+    initial_conditions << 1.0, 0.0;
+
+    // Set time span and options for RK4 method with event detection
+    TimeSpan<double> time_span(0.0, 10.0);
+    Options<double, 2> options;
+    options.fixed_time_step    = 1e-4;
+    options.integration_method = IntegrationMethod::RK4;
+    options.event.function     = [](const double t, const Eigen::Matrix<double, 2, 1>& x) {
+        Eigen::Matrix<double, 1, 1> events;
+        events(0) = x(0);  // Event when position x1 crosses zero
+        return events;
+    };
+    options.event.direction   = 0;
+    options.event.is_terminal = false;
+
+    // Solve the ODE with event detection
+    Result<double, 2> result = ode<double, 2>(ode_function, time_span, initial_conditions, options);
+
+    // Check the computed event times against the expected event times
+    double period      = 2.0 * M_PI;
+    double half_period = period / 2.0;
+    for (int i = 0; i < result.event_times.size(); ++i) {
+        double expected_event_time = half_period * i + M_PI_2;
+        CHECK(std::abs(result.event_times[i] - expected_event_time) < 1e-2);
+    }
+}
+
+TEST_CASE("Solve bouncing ball ode using RK4 and event detection.", "[ode]") {
+    // Define the ODE function (free fall)
+    auto ode_function = [](const double t, const Eigen::Matrix<double, 2, 1>& x) -> Eigen::Matrix<double, 2, 1> {
+        Eigen::Matrix<double, 2, 1> dxdt;
+        dxdt(0) = x(1);
+        dxdt(1) = -9.81;  // Acceleration due to gravity
+        return dxdt;
+    };
+
+    // Set initial conditions (initial height and zero initial velocity)
+    Eigen::Matrix<double, 2, 1> initial_conditions;
+    initial_conditions << 10.0, 0.0;
+
+    // Set time span and options for the ODE solver with event detection
+    TimeSpan<double> time_span(0.0, 10.0);
+    Options<double, 2> options;
+    options.fixed_time_step    = 1e-4;
+    options.integration_method = IntegrationMethod::RK4;
+    options.event.function     = [](const double t, const Eigen::Matrix<double, 2, 1>& x) {
+        Eigen::Matrix<double, 1, 1> events;
+        events(0) = x(0);  // Event when height crosses zero (ground)
+        return events;
+    };
+    options.event.direction   = -1;  // Detect only when the height is decreasing
+    options.event.is_terminal = true;
+
+    // Solve the ODE with event detection
+    Result<double, 2> result = ode<double, 2>(ode_function, time_span, initial_conditions, options);
+
+    // Check if the event time is as expected (time when the ball reaches the ground)
+    double expected_event_time = std::sqrt(2 * initial_conditions(0) / 9.81);
+    CHECK(std::abs(result.event_times[0] - expected_event_time) < 1e-2);
+
+    // Check if the height of the ball is as expected at the end of the simulation
+    CHECK(std::abs(result.event_solutions[0](0)) < 1e-2);
+}
