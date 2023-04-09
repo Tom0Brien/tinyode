@@ -13,6 +13,37 @@
 namespace tinyode {
 
     /**
+     * @brief Perform a single rk5 step
+     * @param ode_func ODE function that defines the system of equations
+     * @param t time variable
+     * @param x state variable
+     * @param options Options for the ODE solver, such as time step and method
+     * @tparam Scalar Scalar type of the ODE
+     * @tparam n State dimensions
+     * @return Eigen::Matrix<Scalar, n, 1>
+     */
+    template <typename Scalar, int n>
+    Eigen::Matrix<Scalar, n, 1> rk5_step(
+        const std::function<Eigen::Matrix<Scalar, n, 1>(const Scalar, const Eigen::Matrix<Scalar, n, 1>&)>& ode_func,
+        const Scalar t,
+        const Eigen::Matrix<Scalar, n, 1>& x,
+        const Options<Scalar, n>& options) {
+        // Preallocate the derivative matrices
+        Eigen::Matrix<Scalar, n, 1> k1, k2, k3, k4, k5, k6;
+
+        k1 = options.fixed_time_step * ode_func(t, x);
+        k2 = options.fixed_time_step * ode_func(t + 0.25 * options.fixed_time_step, x + 0.25 * k1);
+        k3 = options.fixed_time_step * ode_func(t + 0.25 * options.fixed_time_step, x + 0.125 * k1 + 0.125 * k2);
+        k4 = options.fixed_time_step * ode_func(t + 0.5 * options.fixed_time_step, x - 0.5 * k2 + k3);
+        k5 = options.fixed_time_step * ode_func(t + 0.75 * options.fixed_time_step, x + 0.1875 * k1 + 0.5625 * k4);
+        k6 = options.fixed_time_step
+             * ode_func(t + options.fixed_time_step, x + (1.0 / 5.0) * k1 - (3.0 / 5.0) * k4 + (4.0 / 5.0) * k5);
+
+        // Update the state variable using the RK5 method
+        return x + (1.0 / 90.0) * (7.0 * k1 + 32.0 * k3 + 12.0 * k4 + 32.0 * k5 + 7.0 * k6);
+    }
+
+    /**
      * @brief Solve an ODE given an initial condition, options, and the ODE function using RK5 method
      * @param ode_func ODE function that defines the system of equations
      * @param time_span Time span for the ODE solver
@@ -40,22 +71,11 @@ namespace tinyode {
         result.t.push_back(t);
         result.x.push_back(x);
 
-        // Preallocate the derivative matrices
-        Eigen::Matrix<Scalar, n, 1> k1, k2, k3, k4, k5, k6;
 
         // Loop through the time steps and apply the RK5 method to update the state variables
         for (int i = 1; i < num_time_steps; ++i) {
             // Compute the six stages of the RK5 method
-            k1 = options.fixed_time_step * ode_func(t, x);
-            k2 = options.fixed_time_step * ode_func(t + 0.25 * options.fixed_time_step, x + 0.25 * k1);
-            k3 = options.fixed_time_step * ode_func(t + 0.25 * options.fixed_time_step, x + 0.125 * k1 + 0.125 * k2);
-            k4 = options.fixed_time_step * ode_func(t + 0.5 * options.fixed_time_step, x - 0.5 * k2 + k3);
-            k5 = options.fixed_time_step * ode_func(t + 0.75 * options.fixed_time_step, x + 0.1875 * k1 + 0.5625 * k4);
-            k6 = options.fixed_time_step
-                 * ode_func(t + options.fixed_time_step, x + (1.0 / 5.0) * k1 - (3.0 / 5.0) * k4 + (4.0 / 5.0) * k5);
-
-            // Update the state variable using the RK5 method
-            x.noalias() += (1.0 / 90.0) * (7.0 * k1 + 32.0 * k3 + 12.0 * k4 + 32.0 * k5 + 7.0 * k6);
+            x.noalias() = rk5_step(ode_func, t, x, options);
 
             // Update the time variable
             t += options.fixed_time_step;

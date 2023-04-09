@@ -5,12 +5,33 @@
 #include <Eigen/Geometry>
 #include <vector>
 
+#include "events.hpp"
 #include "ode_base.hpp"
 
 /** \file euler.hpp
  * @brief Contains euler method for solving ordinary differential equations (ODEs).
  */
 namespace tinyode {
+
+    /**
+     * @brief Perform a single Euler step
+     * @param ode_func ODE function that defines the system of equations
+     * @param t time variable
+     * @param x state variable
+     * @param options Options for the ODE solver, such as time step and method
+     * @tparam Scalar Scalar type of the ODE
+     * @tparam n State dimensions
+     * @return Eigen::Matrix<Scalar, n, 1>
+     */
+    template <typename Scalar, int n>
+    Eigen::Matrix<Scalar, n, 1> euler_step(
+        const std::function<Eigen::Matrix<Scalar, n, 1>(const Scalar, const Eigen::Matrix<Scalar, n, 1>&)>& ode_func,
+        const Scalar t,
+        const Eigen::Matrix<Scalar, n, 1>& x,
+        const Options<Scalar, n>& options) {
+        // Update the state variable using the Euler method
+        return x + options.fixed_time_step * ode_func(t, x);
+    }
 
     /**
      * @brief Solve an ODE given an initial condition, options, and the ODE function using Euler method
@@ -44,7 +65,7 @@ namespace tinyode {
         // Loop through the time steps and apply the Euler method to update the state variables
         for (int i = 1; i < num_time_steps; ++i) {
             // Update the state variable using the Euler method
-            x.noalias() += options.fixed_time_step * ode_func(t, x);
+            x.noalias() = euler_step(ode_func, t, x, options);
 
             // Update the time variable
             t += options.fixed_time_step;
@@ -97,35 +118,15 @@ namespace tinyode {
             prev_t = t;
 
             // Update the state variable using the Euler method
-            x.noalias() += options.fixed_time_step * ode_func(t, x);
+            x.noalias() = euler_step(ode_func, t, x, options);
 
             // Update the time variable
             t += options.fixed_time_step;
 
             // Check for events
-            Eigen::Matrix<Scalar, Eigen::Dynamic, 1> prev_event_values = options.event.function(prev_t, prev_x);
-            Eigen::Matrix<Scalar, Eigen::Dynamic, 1> curr_event_values = options.event.function(t, x);
-            int num_events                                             = prev_event_values.size();
-
-            for (int j = 0; j < num_events; ++j) {
-                Scalar prev_event_value = prev_event_values(j);
-                Scalar curr_event_value = curr_event_values(j);
-
-                if ((options.event.direction == 0)
-                    || (options.event.direction > 0 && prev_event_value < curr_event_value)
-                    || (options.event.direction < 0 && prev_event_value > curr_event_value)) {
-                    if (prev_event_value * curr_event_value <= 0) {
-                        // An event has occurred
-                        result.event_times.push_back(t);
-                        result.event_solutions.push_back(x);
-                        result.event_indices.push_back(j);
-
-                        // If event is terminal, stop the integration
-                        if (options.event.is_terminal) {
-                            return result;
-                        }
-                    }
-                }
+            bool event_detected = detect_event(options, prev_t, prev_x, t, x, result);
+            if (event_detected && options.event.is_terminal) {
+                return result;
             }
 
             // Store the computed state variables and corresponding time values in the Result structure

@@ -39,6 +39,12 @@ namespace tinyode {
         /// @brief 0 if all zeros are to be located (the default). A value of +1 locates only zeros where the event
         /// function is increasing, and -1 locates only zeros where the event function is decreasing.
         Scalar direction = 0;
+
+        /// @brief Maximum number of iterations to perform when searching for an event using a root-finding algorithm.
+        int max_iterations = 1000;
+
+        /// @brief Tolerance for event detection.
+        Scalar tolerance = 1e-3;
     };
 
     /// @brief Struct for ODE options
