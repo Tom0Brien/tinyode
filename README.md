@@ -13,7 +13,6 @@ The goal of **tinyode** is to be as simple as possible while still being incredi
 ### 1. Install Dependencies
 - [Eigen3](https://eigen.tuxfamily.org/index.php?title=Main_Page)
 - [Catch2](https://github.com/catchorg/Catch2)
-- [TinyXML2](https://github.com/leethomason/tinyxml2)
 
 ### 2. Build with cmake
   ```bash
