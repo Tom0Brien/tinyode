@@ -1,7 +1,7 @@
 tinyode
 ===========
 
-**tinyode** is a lightweight C++ library which provides various ordinary differential equation solver.
+**tinyode** is a lightweight C++ library which provides various ordinary differential equation solvers.
 
 The goal of **tinyode** is to be as simple as possible while still being incredibly fast and versatile.
 
